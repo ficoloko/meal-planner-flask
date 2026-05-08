@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Историја на планови | Student Meal Planner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 15px 30px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .logo h1 {
+            color: #667eea;
+            font-size: 1.5em;
+        }
+
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 10px;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: #5a6268;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+
+        .history-item {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: transform 0.2s;
+        }
+
+        .history-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .history-date {
+            font-size: 18px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 5px;
+        }
+
+        .history-meals {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .history-meal {
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 10px;
+        }
+
+        .history-meal-icon {
+            font-size: 30px;
+        }
+
+        .history-meal-name {
+            font-weight: 600;
+            margin: 5px 0;
+            font-size: 14px;
+            word-break: break-word;
+        }
+
+        .history-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+            color: #666;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        @media (max-width: 768px) {
+            .history-meals {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            .header {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <h1>🍽️ Student Meal Planner</h1>
+            </div>
+            <a href="/" class="back-btn">← Назад на почетна</a>
+        </div>
+
+        <div class="card">
+            <h2>📜 Историја на генерирани планови</h2>
+            <div id="historyList">
+                <div class="empty-state">⏳ Вчитување...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadHistory() {
+            try {
+                const response = await fetch('/get_history');
+                const history = await response.json();
+                const container = document.getElementById('historyList');
+                
+                if (history.length === 0) {
+                    container.innerHTML = '<div class="empty-state">📭 Нема зачувани планови. Генерирај план на почетната страна.</div>';
+                    return;
+                }
+                
+                let html = '';
+                history.forEach(h => {
+                    let mealsHtml = '';
+                    
+                    if (h.breakfast && h.breakfast !== 'Нема') {
+                        mealsHtml += `
+                            <div class="history-meal">
+                                <div class="history-meal-icon">🍳</div>
+                                <div class="history-meal-name">${h.breakfast}</div>
+                            </div>
+                        `;
+                    }
+                    
+                    if (h.lunch && h.lunch !== 'Нема') {
+                        mealsHtml += `
+                            <div class="history-meal">
+                                <div class="history-meal-icon">🍝</div>
+                                <div class="history-meal-name">${h.lunch}</div>
+                            </div>
+                        `;
+                    }
+                    
+                    if (h.dinner && h.dinner !== 'Нема') {
+                        mealsHtml += `
+                            <div class="history-meal">
+                                <div class="history-meal-icon">🌙</div>
+                                <div class="history-meal-name">${h.dinner}</div>
+                            </div>
+                        `;
+                    }
+                    
+                    if (h.snack && h.snack !== 'Нема') {
+                        mealsHtml += `
+                            <div class="history-meal">
+                                <div class="history-meal-icon">🍎</div>
+                                <div class="history-meal-name">${h.snack}</div>
+                            </div>
+                        `;
+                    }
+                    
+                    if (!mealsHtml) {
+                        mealsHtml = '<div class="history-meal"><div class="history-meal-name">Нема оброци</div></div>';
+                    }
+                    
+                    html += `
+                        <div class="history-item">
+                            <div class="history-date">📅 ${h.date}</div>
+                            <div class="history-meals">
+                                ${mealsHtml}
+                            </div>
+                            <div class="history-stats">
+                                <span>💰 Вкупно: ${h.total_price} ден.</span>
+                                <span>🔥 Калории: ${h.total_calories || '?'} kcal</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Грешка:', error);
+                document.getElementById('historyList').innerHTML = '<div class="empty-state">❌ Грешка при вчитување на историјата.</div>';
+            }
+        }
+
+        loadHistory();
+    </script>
+</body>
+</html>

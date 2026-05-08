@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профил | Student Meal Planner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 1.8em;
+        }
+
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 10px;
+            text-decoration: none;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .flash-danger {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .info-text {
+            text-align: center;
+            color: #666;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👤 Мој Профил</h1>
+            <a href="/" class="back-btn">← Назад</a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <div class="form-group">
+                <label>👤 Корисничко име</label>
+                <input type="text" value="{{ user.username }}" disabled style="background:#f0f0f0;">
+            </div>
+
+            <div class="form-group">
+                <label>📧 Емаил</label>
+                <input type="email" name="email" value="{{ user.email }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>💰 Дневен буџет (ден.)</label>
+                <input type="number" name="budget" value="{{ prefs.budget }}" min="100" max="500" required>
+            </div>
+
+            <div class="form-group">
+                <label>🎯 Цел</label>
+                <select name="goal">
+                    <option value="maintain" {% if prefs.goal == 'maintain' %}selected{% endif %}>⚖️ Одржување</option>
+                    <option value="weight_loss" {% if prefs.goal == 'weight_loss' %}selected{% endif %}>🏃‍♂️ Слабеење</option>
+                    <option value="muscle_gain" {% if prefs.goal == 'muscle_gain' %}selected{% endif %}>💪 Зголемување маса</option>
+                </select>
+            </div>
+
+            <button type="submit">💾 Зачувај промени</button>
+        </form>
+
+        <div class="info-text">
+            <p>📅 Член од: {{ user.created_at.strftime('%d.%m.%Y') if user.created_at else 'Неодамна' }}</p>
+        </div>
+    </div>
+</body>
+</html>
