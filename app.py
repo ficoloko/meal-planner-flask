@@ -44,14 +44,39 @@ class MealPlanHistory(db.Model):
     breakfast = db.Column(db.String(100))
     lunch = db.Column(db.String(100))
     dinner = db.Column(db.String(100))
-    snack = db.Column(db.String(100))  
-    snack_calories = db.Column(db.Integer, default=0)  
-    snack_price = db.Column(db.Integer, default=0) 
+    snack = db.Column(db.String(100))
+    snack_calories = db.Column(db.Integer, default=0)
+    snack_price = db.Column(db.Integer, default=0)
     total_price = db.Column(db.Integer)
     total_calories = db.Column(db.Integer)
     budget = db.Column(db.Integer)
     goal = db.Column(db.String(50))
     date = db.Column(db.Date, default=date.today)
+
+class UserMeal(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    meal_name = db.Column(db.String(100), nullable=False)
+    meal_type = db.Column(db.String(20))
+    price = db.Column(db.Integer)
+    calories = db.Column(db.Integer)
+    protein = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class DailyPlan(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    breakfast = db.Column(db.String(100))
+    breakfast_price = db.Column(db.Integer)
+    breakfast_calories = db.Column(db.Integer)
+    lunch = db.Column(db.String(100))
+    lunch_price = db.Column(db.Integer)
+    lunch_calories = db.Column(db.Integer)
+    dinner = db.Column(db.String(100))
+    dinner_price = db.Column(db.Integer)
+    dinner_calories = db.Column(db.Integer)
+    date = db.Column(db.Date, default=date.today)
+    custom_meals = db.Column(db.String(1000), default='[]')
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -59,7 +84,6 @@ def load_user(user_id):
 
 with app.app_context():
     db.create_all()
-    
 
 def calculate_bmr(height, weight, age, gender, goal='maintain'):
     if gender == 'male':
@@ -76,7 +100,6 @@ def calculate_bmr(height, weight, age, gender, goal='maintain'):
         daily_calories = bmr * 1.2
     
     return round(daily_calories)
-
 
 MEALS = {
     "breakfast": [
@@ -132,11 +155,20 @@ MEALS = {
     ]
 }
 
-def find_meal(meal_type, max_price, target_calories, goal, remaining_budget=120):
-    available = MEALS.get(meal_type, [])
+def find_meal(meal_type, max_price, target_calories, goal, user_id, remaining_budget=120):
+    available = MEALS.get(meal_type, []).copy()
+    
+    user_meals = UserMeal.query.filter_by(user_id=user_id, meal_type=meal_type).all()
+    for meal in user_meals:
+        available.append({
+            'name': meal.meal_name,
+            'price': meal.price,
+            'calories': meal.calories,
+            'protein': meal.protein,
+            'is_custom': True
+        })
     
     affordable = [m for m in available if m['price'] <= max_price and m['price'] <= remaining_budget]
-    
     if not affordable:
         affordable = sorted(available, key=lambda x: x['price'])[:5]
     
@@ -163,17 +195,45 @@ def home():
 def history_page():
     return render_template('history.html')
 
+@app.route('/onboarding', methods=['GET', 'POST'])
+@login_required
+def onboarding():
+    prefs = json.loads(current_user.preferences or '{}')
+    if prefs.get('onboarding_complete', False):
+        return redirect(url_for('home'))
+    
+    if request.method == 'POST':
+        height = float(request.form.get('height', 170))
+        weight = float(request.form.get('weight', 70))
+        age = int(request.form.get('age', 20))
+        gender = request.form.get('gender', 'male')
+        goal = request.form.get('goal', 'maintain')
+        
+        current_user.height = height
+        current_user.weight = weight
+        current_user.age = age
+        current_user.gender = gender
+        
+        daily_calories = calculate_bmr(height, weight, age, gender, goal)
+        
+        prefs['goal'] = goal
+        prefs['daily_calories'] = daily_calories
+        prefs['onboarding_complete'] = True
+        prefs['budget'] = 120
+        
+        current_user.preferences = json.dumps(prefs)
+        db.session.commit()
+        
+        return redirect(url_for('home'))
+    
+    return render_template('onboarding.html')
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
-        height = float(request.form.get('height', 170))
-        weight = float(request.form.get('weight', 70))
-        age = int(request.form.get('age', 20))
-        gender = request.form.get('gender', 'male')
-        goal = request.form.get('goal', 'maintain')
         
         if User.query.filter_by(username=username).first():
             flash('Корисничкото име веќе постои!', 'danger')
@@ -184,35 +244,28 @@ def register():
             return redirect(url_for('register'))
         
         hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-        daily_calories = calculate_bmr(height, weight, age, gender, goal)
         
         new_user = User(
             username=username,
             email=email,
             password=hashed_password,
-            height=height,
-            weight=weight,
-            age=age,
-            gender=gender
+            height=170,
+            weight=70,
+            age=20,
+            gender='male'
         )
         
         new_user.preferences = json.dumps({
             'budget': 120,
-            'goal': goal,
-            'daily_calories': daily_calories
+            'goal': 'maintain',
+            'daily_calories': 2000,
+            'onboarding_complete': False
         })
         
         db.session.add(new_user)
         db.session.commit()
         
-        if goal == 'weight_loss':
-            kcal_message = f'Твоите дневни потреби за слабеење се {daily_calories} kcal (намалени за 400 kcal).'
-        elif goal == 'muscle_gain':
-            kcal_message = f'Твоите дневни потреби за зголемување маса се {daily_calories} kcal (зголемени за 400 kcal).'
-        else:
-            kcal_message = f'Твоите дневни потреби за одржување се {daily_calories} kcal.'
-        
-        flash(f'Успешно се регистриравте!', 'success')
+        flash('Успешно се регистриравте! Сега најавете се.', 'success')
         return redirect(url_for('login'))
     
     return render_template('register.html')
@@ -226,6 +279,9 @@ def login():
         
         if user and check_password_hash(user.password, password):
             login_user(user)
+            prefs = json.loads(user.preferences or '{}')
+            if not prefs.get('onboarding_complete', False):
+                return redirect(url_for('onboarding'))
             return redirect(url_for('home'))
         else:
             flash('Погрешно корисничко име или лозинка!', 'danger')
@@ -282,16 +338,37 @@ def generate():
     meals = {}
     
     max_breakfast = min(45, remaining - 60)
-    meals['breakfast'] = find_meal('breakfast', max_breakfast, calories_per_meal['breakfast'], goal, remaining)
-    remaining -= meals['breakfast']['price']
+    breakfast_meal = find_meal('breakfast', max_breakfast, calories_per_meal['breakfast'], goal, current_user.id, remaining)
+    meals['breakfast'] = {
+        'name': breakfast_meal['name'],
+        'price': breakfast_meal['price'],
+        'calories': breakfast_meal['calories'],
+        'protein': breakfast_meal.get('protein', 0),
+        'is_custom': breakfast_meal.get('is_custom', False)
+    }
+    remaining -= breakfast_meal['price']
     
     max_lunch = min(70, remaining - 20)
     if max_lunch < 40:
         max_lunch = remaining - 20
-    meals['lunch'] = find_meal('lunch', max_lunch, calories_per_meal['lunch'], goal, remaining)
-    remaining -= meals['lunch']['price']
+    lunch_meal = find_meal('lunch', max_lunch, calories_per_meal['lunch'], goal, current_user.id, remaining)
+    meals['lunch'] = {
+        'name': lunch_meal['name'],
+        'price': lunch_meal['price'],
+        'calories': lunch_meal['calories'],
+        'protein': lunch_meal.get('protein', 0),
+        'is_custom': lunch_meal.get('is_custom', False)
+    }
+    remaining -= lunch_meal['price']
     
-    meals['dinner'] = find_meal('dinner', remaining, calories_per_meal['dinner'], goal, remaining)
+    dinner_meal = find_meal('dinner', remaining, calories_per_meal['dinner'], goal, current_user.id, remaining)
+    meals['dinner'] = {
+        'name': dinner_meal['name'],
+        'price': dinner_meal['price'],
+        'calories': dinner_meal['calories'],
+        'protein': dinner_meal.get('protein', 0),
+        'is_custom': dinner_meal.get('is_custom', False)
+    }
     
     total_price = sum(m['price'] for m in meals.values())
     total_calories = sum(m['calories'] for m in meals.values())
@@ -462,8 +539,39 @@ def get_all_meals():
                 'price': meal['price'],
                 'calories': meal['calories'],
                 'protein': meal.get('protein', 0),
-                'type': meal_type
+                'type': meal_type,
+                'is_custom': False
             })
+    return jsonify(all_meals)
+
+@app.route('/get_all_meals_for_planner')
+@login_required
+def get_all_meals_for_planner():
+    all_meals = []
+    
+    for meal_type, meals in MEALS.items():
+        for meal in meals:
+            all_meals.append({
+                'name': meal['name'],
+                'price': meal['price'],
+                'calories': meal['calories'],
+                'protein': meal.get('protein', 0),
+                'type': meal_type,
+                'is_custom': False
+            })
+    
+    custom_meals = UserMeal.query.filter_by(user_id=current_user.id).all()
+    for meal in custom_meals:
+        all_meals.append({
+            'name': meal.meal_name,
+            'price': meal.price,
+            'calories': meal.calories,
+            'protein': meal.protein,
+            'type': meal.meal_type,
+            'is_custom': True,
+            'id': meal.id
+        })
+    
     return jsonify(all_meals)
 
 @app.route('/get_today_meals')
@@ -556,6 +664,145 @@ def get_recommendations():
     
     return jsonify(recommendations)
 
+@app.route('/get_exercise_recommendations')
+@login_required
+def get_exercise_recommendations():
+    prefs = json.loads(current_user.preferences or '{}')
+    goal = prefs.get('goal', 'maintain')
+    
+    from datetime import date
+    day_of_week = date.today().weekday()  # 0=Понеделник, 6=Недела
+    
+    exercises = {
+        'weight_loss': [
+            [  # Понеделник
+                {'exercise': 'Трчање', 'duration': '30 мин', 'calories_burn': '~300 kcal', 'tip': 'Трчај умерено темпо'},
+                {'exercise': 'Скокање јаже', 'duration': '15 мин', 'calories_burn': '~180 kcal', 'tip': 'Одмори 30 сек на секои 3 мин'},
+                {'exercise': 'Планк', 'duration': '3 x 45 сек', 'calories_burn': '~50 kcal', 'tip': 'Држи го грбот рамен'},
+            ],
+            [  # Вторник
+                {'exercise': 'Велосипед', 'duration': '45 мин', 'calories_burn': '~350 kcal', 'tip': 'Одлична кардио активност'},
+                {'exercise': 'Чучњеви', 'duration': '4 x 15', 'calories_burn': '~120 kcal', 'tip': 'Спуштај се подолу'},
+                {'exercise': 'Берпи', 'duration': '3 x 10', 'calories_burn': '~100 kcal', 'tip': 'Одмори 1 мин меѓу серии'},
+            ],
+            [  # Среда
+                {'exercise': 'Пливање', 'duration': '30 мин', 'calories_burn': '~250 kcal', 'tip': 'Нежно кон зглобовите'},
+                {'exercise': 'Планинарење', 'duration': '60 мин', 'calories_burn': '~400 kcal', 'tip': 'Носи вода'},
+                {'exercise': 'Истегнување', 'duration': '20 мин', 'calories_burn': '~60 kcal', 'tip': 'Задржи ја секоја позиција 30 сек'},
+            ],
+            [  # Четврток
+                {'exercise': 'HIIT тренинг', 'duration': '20 мин', 'calories_burn': '~300 kcal', 'tip': '30 сек работа, 15 сек одмор'},
+                {'exercise': 'Брзо одење', 'duration': '45 мин', 'calories_burn': '~200 kcal', 'tip': 'Брзо темпо цело време'},
+                {'exercise': 'Склекови', 'duration': '4 x 12', 'calories_burn': '~80 kcal', 'tip': 'Полека надолу, брзо нагоре'},
+            ],
+            [  # Петок
+                {'exercise': 'Трчање интервали', 'duration': '25 мин', 'calories_burn': '~320 kcal', 'tip': '1 мин брзо, 1 мин бавно'},
+                {'exercise': 'Лунги', 'duration': '3 x 12', 'calories_burn': '~100 kcal', 'tip': 'Наизменично лева и десна нога'},
+                {'exercise': 'Абдоминали', 'duration': '3 x 20', 'calories_burn': '~60 kcal', 'tip': 'Бавни и контролирани движења'},
+            ],
+            [  # Сабота
+                {'exercise': 'Јога', 'duration': '45 мин', 'calories_burn': '~150 kcal', 'tip': 'Фокус на дишење'},
+                {'exercise': 'Одење во природа', 'duration': '60 мин', 'calories_burn': '~250 kcal', 'tip': 'Активен одмор'},
+                {'exercise': 'Истегнување', 'duration': '15 мин', 'calories_burn': '~40 kcal', 'tip': 'Превенција од повреди'},
+            ],
+            [  # Недела
+                {'exercise': 'Лесно трчање', 'duration': '20 мин', 'calories_burn': '~180 kcal', 'tip': 'Бавно и уживачки'},
+                {'exercise': 'Медитација + јога', 'duration': '30 мин', 'calories_burn': '~80 kcal', 'tip': 'Ден за опоравување'},
+                {'exercise': 'Истегнување', 'duration': '15 мин', 'calories_burn': '~40 kcal', 'tip': 'Подготви се за новата недела'},
+            ],
+        ],
+        'muscle_gain': [
+            [  # Понеделник - Гради
+                {'exercise': 'Склекови', 'duration': '4 x 12', 'calories_burn': '~100 kcal', 'tip': 'Гради и рамења'},
+                {'exercise': 'Дипови', 'duration': '3 x 10', 'calories_burn': '~80 kcal', 'tip': 'Користи стол или клупа'},
+                {'exercise': 'Планк', 'duration': '3 x 60 сек', 'calories_burn': '~60 kcal', 'tip': 'Стабилизација'},
+            ],
+            [  # Вторник - Нозе
+                {'exercise': 'Чучњеви', 'duration': '4 x 15', 'calories_burn': '~150 kcal', 'tip': 'Длабоко до 90 степени'},
+                {'exercise': 'Лунги', 'duration': '3 x 12', 'calories_burn': '~120 kcal', 'tip': 'Чекори нанапред'},
+                {'exercise': 'Искок чучњеви', 'duration': '3 x 10', 'calories_burn': '~130 kcal', 'tip': 'Експлозивно движење'},
+            ],
+            [  # Среда - Одмор/Core
+                {'exercise': 'Абдоминали', 'duration': '4 x 20', 'calories_burn': '~80 kcal', 'tip': 'Бавни движења'},
+                {'exercise': 'Планк странично', 'duration': '3 x 30 сек', 'calories_burn': '~50 kcal', 'tip': 'Секоја страна'},
+                {'exercise': 'Истегнување', 'duration': '20 мин', 'calories_burn': '~60 kcal', 'tip': 'Важно за опоравување'},
+            ],
+            [  # Четврток - Грб и рамења
+                {'exercise': 'Потег нагоре', 'duration': '4 x 8', 'calories_burn': '~120 kcal', 'tip': 'Ако можеш, иначе негативни'},
+                {'exercise': 'Пајк склекови', 'duration': '3 x 10', 'calories_burn': '~90 kcal', 'tip': 'Рамења напред'},
+                {'exercise': 'Супермен', 'duration': '3 x 15', 'calories_burn': '~60 kcal', 'tip': 'Лежи и кревај грб'},
+            ],
+            [  # Петок - Цело тело
+                {'exercise': 'Берпи', 'duration': '4 x 10', 'calories_burn': '~150 kcal', 'tip': 'Максимален интензитет'},
+                {'exercise': 'Мртво дигање', 'duration': '4 x 8', 'calories_burn': '~180 kcal', 'tip': 'Грбот рамен цело време'},
+                {'exercise': 'Скокови на кутија', 'duration': '3 x 10', 'calories_burn': '~120 kcal', 'tip': 'Меко слетување'},
+            ],
+            [  # Сабота - Раце
+                {'exercise': 'Диамантски склекови', 'duration': '3 x 10', 'calories_burn': '~80 kcal', 'tip': 'Трицепси'},
+                {'exercise': 'Потег со тесен фат', 'duration': '3 x 8', 'calories_burn': '~100 kcal', 'tip': 'Бицепси'},
+                {'exercise': 'Дипови на стол', 'duration': '3 x 12', 'calories_burn': '~90 kcal', 'tip': 'Трицепси и рамења'},
+            ],
+            [  # Недела - Активен одмор
+                {'exercise': 'Лесно одење', 'duration': '30 мин', 'calories_burn': '~120 kcal', 'tip': 'Активен одмор'},
+                {'exercise': 'Јога', 'duration': '20 мин', 'calories_burn': '~70 kcal', 'tip': 'Флексибилност'},
+                {'exercise': 'Истегнување', 'duration': '15 мин', 'calories_burn': '~40 kcal', 'tip': 'Мускулите растат во одмор'},
+            ],
+        ],
+        'maintain': [
+            [  # Понеделник
+                {'exercise': 'Брзо одење', 'duration': '45 мин', 'calories_burn': '~200 kcal', 'tip': 'Одржи срцевиот ритам'},
+                {'exercise': 'Склекови', 'duration': '3 x 10', 'calories_burn': '~70 kcal', 'tip': 'Одржување на силата'},
+                {'exercise': 'Истегнување', 'duration': '10 мин', 'calories_burn': '~30 kcal', 'tip': 'После секој тренинг'},
+            ],
+            [  # Вторник
+                {'exercise': 'Велосипед', 'duration': '30 мин', 'calories_burn': '~250 kcal', 'tip': 'Умерено темпо'},
+                {'exercise': 'Чучњеви', 'duration': '3 x 12', 'calories_burn': '~100 kcal', 'tip': 'Одржување на нозете'},
+                {'exercise': 'Планк', 'duration': '3 x 40 сек', 'calories_burn': '~50 kcal', 'tip': 'Стабилност'},
+            ],
+            [  # Среда
+                {'exercise': 'Јога', 'duration': '30 мин', 'calories_burn': '~100 kcal', 'tip': 'Флексибилност и баланс'},
+                {'exercise': 'Одење во природа', 'duration': '45 мин', 'calories_burn': '~180 kcal', 'tip': 'Уживај во природата'},
+                {'exercise': 'Дишни вежби', 'duration': '10 мин', 'calories_burn': '~20 kcal', 'tip': 'Релаксација'},
+            ],
+            [  # Четврток
+                {'exercise': 'Трчање', 'duration': '25 мин', 'calories_burn': '~240 kcal', 'tip': 'Умерено темпо'},
+                {'exercise': 'Лунги', 'duration': '3 x 10', 'calories_burn': '~90 kcal', 'tip': 'Баланс и координација'},
+                {'exercise': 'Абдоминали', 'duration': '3 x 15', 'calories_burn': '~50 kcal', 'tip': 'Јачина'},
+            ],
+            [  # Петок
+                {'exercise': 'Пливање', 'duration': '30 мин', 'calories_burn': '~250 kcal', 'tip': 'Цело тело'},
+                {'exercise': 'Истегнување', 'duration': '15 мин', 'calories_burn': '~40 kcal', 'tip': 'Флексибилност'},
+                {'exercise': 'Медитација', 'duration': '10 мин', 'calories_burn': '~20 kcal', 'tip': 'Ментално здравје'},
+            ],
+            [  # Сабота
+                {'exercise': 'Планинарење', 'duration': '90 мин', 'calories_burn': '~500 kcal', 'tip': 'Викенд активност'},
+                {'exercise': 'Истегнување', 'duration': '15 мин', 'calories_burn': '~40 kcal', 'tip': 'После планинарење'},
+                {'exercise': 'Јога', 'duration': '20 мин', 'calories_burn': '~70 kcal', 'tip': 'Релаксација'},
+            ],
+            [  # Недела
+                {'exercise': 'Лесно одење', 'duration': '30 мин', 'calories_burn': '~120 kcal', 'tip': 'Активен одмор'},
+                {'exercise': 'Истегнување', 'duration': '20 мин', 'calories_burn': '~50 kcal', 'tip': 'Подготви се за неделата'},
+                {'exercise': 'Дишни вежби', 'duration': '10 мин', 'calories_burn': '~20 kcal', 'tip': 'Релаксација'},
+            ],
+        ]
+    }
+    
+    days = ['Понеделник', 'Вторник', 'Среда', 'Четврток', 'Петок', 'Сабота', 'Недела']
+    today_exercises = exercises[goal][day_of_week]
+    today_name = days[day_of_week]
+    
+    result = []
+    for ex in today_exercises:
+        result.append({
+            'title': f'🗓️ {today_name}',
+            'exercise': ex['exercise'],
+            'duration': ex['duration'],
+            'calories_burn': ex['calories_burn'],
+            'tip': ex['tip']
+        })
+    
+    return jsonify(result)
+
 @app.route('/get_preferences')
 @login_required
 def get_preferences():
@@ -587,5 +834,202 @@ def save_preferences():
     db.session.commit()
     return jsonify({'status': 'ok'})
 
+@app.route('/add_user_meal', methods=['POST'])
+@login_required
+def add_user_meal():
+    try:
+        data = request.get_json()
+        print("=== ДОДАВАЊЕ НА CUSTOM ОБРОК ===")
+        print("Податоци:", data)
+        
+        new_meal = UserMeal(
+            user_id=current_user.id,
+            meal_name=data.get('meal_name'),
+            meal_type=data.get('meal_type'),
+            price=data.get('price'),
+            calories=data.get('calories'),
+            protein=data.get('protein', 0)
+        )
+        new_entry = MealEntry(
+    user_id=current_user.id,
+    meal_type=data.get('meal_type', 'custom'),
+    meal_name=data.get('meal_name'),
+    calories=data.get('calories'),
+    price=data.get('price'),
+    date=date.today()
+)
+        db.session.add(new_meal)
+        
+        today = date.today()
+        today_history = MealPlanHistory.query.filter_by(user_id=current_user.id, date=today).first()
+        
+        if today_history:
+            if today_history.snack:
+                today_history.snack += f", {data.get('meal_name')}"
+                today_history.snack_calories += data.get('calories')
+                today_history.snack_price += data.get('price')
+            else:
+                today_history.snack = data.get('meal_name')
+                today_history.snack_calories = data.get('calories')
+                today_history.snack_price = data.get('price')
+            today_history.total_price += data.get('price')
+            today_history.total_calories += data.get('calories')
+        else:
+            new_history = MealPlanHistory(
+                user_id=current_user.id,
+                breakfast="Нема",
+                lunch="Нема",
+                dinner="Нема",
+                snack=data.get('meal_name'),
+                snack_calories=data.get('calories'),
+                snack_price=data.get('price'),
+                total_price=data.get('price'),
+                total_calories=data.get('calories'),
+                budget=120,
+                goal=json.loads(current_user.preferences or '{}').get('goal', 'maintain'),
+                date=today
+            )
+            db.session.add(new_history)
+        
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+@app.route('/get_user_meals')
+@login_required
+def get_user_meals():
+    meals = UserMeal.query.filter_by(user_id=current_user.id).order_by(UserMeal.created_at.desc()).all()
+    return jsonify([{
+        'id': m.id,
+        'meal_name': m.meal_name,
+        'meal_type': m.meal_type,
+        'price': m.price,
+        'calories': m.calories,
+        'protein': m.protein
+    } for m in meals])
+
+@app.route('/delete_user_meal/<int:meal_id>', methods=['DELETE'])
+@login_required
+def delete_user_meal(meal_id):
+    try:
+        meal = UserMeal.query.filter_by(id=meal_id, user_id=current_user.id).first()
+        if meal:
+            db.session.delete(meal)
+            db.session.commit()
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'error': 'Оброкот не е пронајден'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/save_daily_plan', methods=['POST'])
+@login_required
+def save_daily_plan():
+    try:
+        data = request.get_json()
+        plan = data.get('plan')
+        
+        existing = DailyPlan.query.filter_by(user_id=current_user.id, date=date.today()).first()
+        if existing:
+            existing.breakfast = plan['breakfast']['name']
+            existing.breakfast_price = plan['breakfast']['price']
+            existing.breakfast_calories = plan['breakfast']['calories']
+            existing.lunch = plan['lunch']['name']
+            existing.lunch_price = plan['lunch']['price']
+            existing.lunch_calories = plan['lunch']['calories']
+            existing.dinner = plan['dinner']['name']
+            existing.dinner_price = plan['dinner']['price']
+            existing.dinner_calories = plan['dinner']['calories']
+            existing.custom_meals = json.dumps(plan.get('custom_meals', []))
+        else:
+            new_plan = DailyPlan(
+                user_id=current_user.id,
+                breakfast=plan['breakfast']['name'],
+                breakfast_price=plan['breakfast']['price'],
+                breakfast_calories=plan['breakfast']['calories'],
+                lunch=plan['lunch']['name'],
+                lunch_price=plan['lunch']['price'],
+                lunch_calories=plan['lunch']['calories'],
+                dinner=plan['dinner']['name'],
+                dinner_price=plan['dinner']['price'],
+                dinner_calories=plan['dinner']['calories'],
+                custom_meals=json.dumps(plan.get('custom_meals', [])),
+                date=date.today()
+            )
+            db.session.add(new_plan)
+        
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        print("Грешка:", str(e))
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/get_daily_plan')
+@login_required
+def get_daily_plan():
+    plan = DailyPlan.query.filter_by(user_id=current_user.id, date=date.today()).first()
+    if plan:
+        return jsonify({
+            'exists': True,
+            'breakfast': {'name': plan.breakfast, 'price': plan.breakfast_price, 'calories': plan.breakfast_calories},
+            'lunch': {'name': plan.lunch, 'price': plan.lunch_price, 'calories': plan.lunch_calories},
+            'dinner': {'name': plan.dinner, 'price': plan.dinner_price, 'calories': plan.dinner_calories}
+        })
+    return jsonify({'exists': False})
+    return jsonify({
+    'exists': True,
+    'breakfast': {'name': plan.breakfast, 'price': plan.breakfast_price, 'calories': plan.breakfast_calories},
+    'lunch': {'name': plan.lunch, 'price': plan.lunch_price, 'calories': plan.lunch_calories},
+    'dinner': {'name': plan.dinner, 'price': plan.dinner_price, 'calories': plan.dinner_calories},
+    'custom_meals': json.loads(plan.custom_meals or '[]')
+})
+
+@app.route('/delete_today_history', methods=['POST'])
+@login_required
+def delete_today_history():
+    try:
+        data = request.get_json()
+        target_date = data.get('date')
+        if target_date:
+            from datetime import datetime
+            target_date_obj = datetime.strptime(target_date, '%Y-%m-%d').date()
+            
+            daily_plan = DailyPlan.query.filter_by(user_id=current_user.id, date=target_date_obj).first()
+            if daily_plan:
+                db.session.delete(daily_plan)
+            
+            history = MealPlanHistory.query.filter_by(user_id=current_user.id, date=target_date_obj).first()
+            if history:
+                db.session.delete(history)
+            
+            meals = MealEntry.query.filter_by(user_id=current_user.id, date=target_date_obj).all()
+            for meal in meals:
+                db.session.delete(meal)
+            
+            db.session.commit()
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'error': 'Нема датум'})
+    except Exception as e:
+        print("Грешка при бришење:", str(e))
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/get_calorie_data')
+@login_required
+def get_calorie_data():
+    from datetime import timedelta
+    last_7_days = []
+    for i in range(6, -1, -1):
+        day = date.today() - timedelta(days=i)
+        meals = MealEntry.query.filter_by(user_id=current_user.id, date=day).all()
+        total_calories = sum(m.calories for m in meals)
+        last_7_days.append({
+            'date': day.strftime('%d.%m'),
+            'calories': total_calories
+        })
+    return jsonify(last_7_days)
+
 if __name__ == '__main__':
+    print("http://localhost:5000")
     app.run(debug=True)

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Meal Planner</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
             margin: 0;
@@ -15,7 +16,84 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
+        }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 260px;
+            height: 100vh;
+            background: white;
+            box-shadow: 2px 0 20px rgba(0,0,0,0.1);
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            overflow-y: auto;
+        }
+
+        .sidebar-logo {
+            text-align: center;
+            padding: 0 15px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            margin-bottom: 15px;
+        }
+
+        .sidebar-logo h2 {
+            color: #667eea;
+            font-size: 1.2em;
+        }
+
+        .sidebar-logo p {
+            font-size: 10px;
+            color: #888;
+            margin-top: 3px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 20px;
+            margin: 3px 0;
+            color: #555;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .nav-item:hover {
+            background: #f0f0ff;
+            color: #667eea;
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 3px 12px;
+            border-radius: 10px;
+        }
+
+        .nav-item.active .nav-icon {
+            color: white;
+        }
+
+        .nav-icon {
+            font-size: 20px;
+            width: 28px;
+            text-align: center;
+        }
+
+        .nav-text {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .main-content {
+            margin-left: 260px;
+            padding: 15px;
         }
 
         .container {
@@ -25,39 +103,41 @@
 
         .header {
             background: white;
-            border-radius: 20px;
-            padding: 15px 30px;
-            margin-bottom: 20px;
+            border-radius: 15px;
+            padding: 10px 20px;
+            margin-bottom: 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 10px;
         }
 
         .logo h1 {
             color: #667eea;
-            font-size: 1.5em;
+            font-size: 1.3em;
         }
 
         .user-info {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 10px;
             flex-wrap: wrap;
         }
 
         .user-info span {
             color: #333;
+            font-size: 14px;
         }
 
         .nav-btn {
             background: #667eea;
             color: white;
-            padding: 8px 20px;
-            border-radius: 10px;
+            padding: 6px 15px;
+            border-radius: 8px;
             text-decoration: none;
             transition: background 0.2s;
+            font-size: 13px;
         }
 
         .nav-btn:hover {
@@ -72,156 +152,197 @@
             background: #c82333;
         }
 
-        .stats-bar {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .stat-card {
+        .info-card {
             background: white;
             border-radius: 15px;
-            padding: 15px;
-            text-align: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            padding: 12px;
+            margin-bottom: 15px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
         }
 
-        .stat-value {
-            font-size: 28px;
+        .progress-card {
+            background: white;
+            border-radius: 15px;
+            padding: 12px;
+            margin-bottom: 15px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .progress-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .progress-bar-container {
+            background: #e9ecef;
+            border-radius: 20px;
+            height: 20px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .progress-fill {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            width: 0%;
+            height: 100%;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 8px;
+            color: white;
+            font-weight: bold;
+            font-size: 11px;
+            transition: width 0.5s ease;
+        }
+
+        .progress-fill.warning {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+        }
+
+        .progress-fill.danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .stat-box {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+
+        .stat-number {
+            font-size: 20px;
             font-weight: bold;
             color: #667eea;
         }
 
         .stat-label {
-            color: #666;
-            font-size: 14px;
-            margin-top: 5px;
-        }
-
-        .info-card {
-            background: white;
-            border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            font-size: 10px;
+            color: #888;
+            margin-top: 3px;
         }
 
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
         }
 
         .card {
             background: white;
-            border-radius: 20px;
-            padding: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            padding: 12px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
         }
 
         .card h2 {
             color: #667eea;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #f0f0f0;
-            padding-bottom: 10px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 6px;
+            font-size: 16px;
         }
 
         .input-group {
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
 
         label {
             display: block;
             font-weight: 600;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
+            font-size: 13px;
         }
 
-        select {
+        input, select {
             width: 100%;
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
         }
 
         button {
             width: 100%;
-            padding: 12px;
+            padding: 8px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            border-radius: 10px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
+            font-size: 14px;
             transition: transform 0.2s;
         }
 
         button:hover {
-            transform: translateY(-2px);
+            transform: translateY(-1px);
         }
 
         .meal-card {
             background: #f8f9fa;
-            border-radius: 15px;
-            padding: 15px;
-            margin-bottom: 10px;
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 8px;
+            font-size: 13px;
         }
 
         .meal-name {
-            font-size: 18px;
+            font-size: 15px;
             font-weight: bold;
         }
 
         .meal-details {
             display: flex;
             justify-content: space-between;
-            margin-top: 10px;
+            margin-top: 6px;
             color: #666;
-        }
-
-        .tracking-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .track-btn {
-            flex: 1;
-            background: #28a745;
-            font-size: 14px;
-        }
-
-        .track-btn:hover {
-            background: #218838;
+            font-size: 12px;
         }
 
         .calorie-counter {
             text-align: center;
-            padding: 20px;
+            padding: 12px;
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 15px;
-            margin-bottom: 20px;
+            border-radius: 12px;
+            margin-bottom: 12px;
         }
 
         .calorie-display {
-            font-size: 48px;
+            font-size: 36px;
             font-weight: bold;
-            margin: 15px 0;
+            margin: 8px 0;
             color: #667eea;
         }
 
         .calorie-goal {
-            font-size: 16px;
+            font-size: 13px;
             color: #666;
         }
 
         .calorie-progress {
             width: 100%;
-            height: 20px;
+            height: 15px;
             background: #e0e0e0;
             border-radius: 10px;
             overflow: hidden;
-            margin: 15px 0;
+            margin: 10px 0;
         }
 
         .calorie-progress-bar {
@@ -241,164 +362,320 @@
 
         .rec-item {
             background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
-            padding: 15px;
+            padding: 10px;
             border-radius: 10px;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .history-item {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 10px;
             margin-bottom: 10px;
+            font-size: 12px;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active-section {
+            display: block;
+        }
+
+        #calorieChart {
+            width: 100%;
+            max-height: 300px;
         }
 
         @media (max-width: 768px) {
+            .sidebar {
+                width: 70px;
+            }
+            .sidebar .nav-text {
+                display: none;
+            }
+            .sidebar-logo h2, .sidebar-logo p {
+                display: none;
+            }
+            .main-content {
+                margin-left: 70px;
+                padding: 10px;
+            }
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
             .header {
                 flex-direction: column;
                 text-align: center;
             }
-            .grid {
-                grid-template-columns: 1fr;
-            }
             .user-info {
                 justify-content: center;
+            }
+            .stats-row {
+                flex-direction: column;
+                gap: 8px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div class="logo">
-                <h1>🍽️ Student Meal Planner</h1>
-            </div>
-            <div class="user-info">
-                <span>👋 Добредојде, {{ current_user.username }}!</span>
-                <a href="/history" class="nav-btn">📜 Историја</a>
-                <a href="/profile" class="nav-btn">👤 Профил</a>
-                <a href="/logout" class="nav-btn logout-btn">🚪 Одјави се</a>
-            </div>
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <h2>🍽️ Meal Planner</h2>
+            <p>Student Edition</p>
         </div>
-
-        <div class="stats-bar">
-            <div class="stat-card">
-                <div class="stat-value" id="weeklyBudget">840</div>
-                <div class="stat-label">💰 Неделен буџет (ден.)</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="dailyBudget">120</div>
-                <div class="stat-label">📅 Дневен буџет (ден.)</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="dailyCalories">-</div>
-                <div class="stat-label">🔥 Потребни калории дневно</div>
-            </div>
+        <div class="nav-item active" data-section="dashboard">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-text">Главна</span>
         </div>
-
-        <div class="info-card">
-            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-                <div style="background: #e7f3ff; border-radius: 15px; padding: 15px; flex: 1;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 30px;">🔥</span>
-                        <div>
-                            <div style="font-size: 14px; color: #666;">Твоите дневни потреби</div>
-                            <div style="font-size: 24px; font-weight: bold; color: #667eea;" id="dailyCaloriesInfo">-- kcal</div>
-                            <div style="font-size: 12px; color: #888;" id="goalTypeInfo"></div>
-                        </div>
-                    </div>
-                </div>
-                <div style="background: #fff3cd; border-radius: 15px; padding: 15px; flex: 1;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 30px;">💰</span>
-                        <div>
-                            <div style="font-size: 14px; color: #666;">Неделен буџет</div>
-                            <div style="font-size: 24px; font-weight: bold; color: #856404;">840 ден.</div>
-                            <div style="font-size: 12px; color: #888;">≈ 120 ден. на ден</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="nav-item" data-section="mealplanner">
+            <span class="nav-icon">🍽️</span>
+            <span class="nav-text">Meal Planner</span>
         </div>
-
-        <div class="grid">
-            <div class="card">
-                <h2>🎯 Генератор на оброци</h2>
-                <div class="input-group">
-                    <label>🎯 Цел</label>
-                    <select id="goal">
-                        <option value="maintain">⚖️ Одржување</option>
-                        <option value="weight_loss">🏃‍♂️ Слабеење</option>
-                        <option value="muscle_gain">💪 Зголемување маса</option>
-                    </select>
-                </div>
-                <button id="generateBtn">🎯 Генерирај план за денес</button>
-                <div id="planResult" style="margin-top: 20px;"></div>
-                <div id="calorieInfo" style="margin-top: 10px; font-size: 14px; color: #666;"></div>
-            </div>
-
-            <div class="card">
-                <h2>📝 Следење на внес (денес)</h2>
-                <div id="todayMeals"></div>
-                <div class="tracking-buttons">
-                    <button class="track-btn" data-meal="breakfast">🍳 Појадок</button>
-                    <button class="track-btn" data-meal="lunch">🍝 Ручек</button>
-                    <button class="track-btn" data-meal="dinner">🌙 Вечера</button>
-                </div>
-            </div>
-
-            <div class="card">
-                <h2>🔥 Калкулатор за калории</h2>
-                <div class="calorie-counter">
-                    <div class="calorie-display" id="calorieDisplay">0</div>
-                    <div class="calorie-goal" id="calorieGoalText">Цел: 0 kcal</div>
-                    <div class="calorie-progress">
-                        <div class="calorie-progress-bar" id="calorieProgressBar" style="width: 0%"></div>
-                    </div>
-                    <div id="calorieStatus"></div>
-                </div>
-                <div id="calorieHistory" style="margin-top: 15px; font-size: 14px; color: #666;"></div>
-            </div>
-
-            <div class="card">
-                <h2>💡 Препораки за тебе</h2>
-                <div id="recommendations"></div>
-            </div>
+        <div class="nav-item" data-section="custommeal">
+            <span class="nav-icon">➕</span>
+            <span class="nav-text">Add Custom Meal</span>
+        </div>
+        <div class="nav-item" data-section="calories">
+            <span class="nav-icon">🔥</span>
+            <span class="nav-text">Calories Calculator</span>
+        </div>
+        <div class="nav-item" data-section="progress">
+            <span class="nav-icon">📈</span>
+            <span class="nav-text">Progress & History</span>
+        </div>
+        <div class="nav-item" data-section="goals">
+            <span class="nav-icon">🎯</span>
+            <span class="nav-text">Goals</span>
+        </div>
+        <div class="nav-item" data-section="settings">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-text">Settings</span>
         </div>
     </div>
 
-    <div style="position: fixed; bottom: 30px; right: 30px; z-index: 1000;">
-        <button id="addSnackBtn" style="background: #ff9800; width: auto; border-radius: 50px; padding: 15px 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-            🍎 Додади ужина
-        </button>
-    </div>
-
-    <div id="snackModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; align-items: center; justify-content: center;">
-        <div style="background: white; border-radius: 20px; padding: 25px; max-width: 500px; width: 90%; max-height: 80%; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="color: #667eea;">🍎 Додади ужина</h2>
-                <button id="closeModalBtn" style="background: #dc3545; width: auto; padding: 8px 15px; font-size: 14px;">✖</button>
+    <div class="main-content">
+        <div class="container">
+            <div class="header">
+                <div class="logo">
+                    <h1>🍽️ Student Meal Planner</h1>
+                </div>
+                <div class="user-info">
+                    <span>👋 Добредојде, {{ current_user.username }}!</span>
+                    <a href="/profile" class="nav-btn">👤 Профил</a>
+                    <a href="/logout" class="nav-btn logout-btn">🚪 Одјави се</a>
+                </div>
             </div>
-            <div id="snackList"></div>
+
+            <div id="dashboard" class="section active-section">
+                <div class="info-card">
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <div style="background: #e7f3ff; border-radius: 12px; padding: 10px; flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 24px;">🔥</span>
+                                <div>
+                                    <div style="font-size: 12px; color: #666;">Твоите дневни потреби</div>
+                                    <div style="font-size: 20px; font-weight: bold; color: #667eea;" id="dailyCaloriesInfo">-- kcal</div>
+                                    <div style="font-size: 10px; color: #888;" id="goalTypeInfo"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="background: #fff3cd; border-radius: 12px; padding: 10px; flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 24px;">💰</span>
+                                <div>
+                                    <div style="font-size: 12px; color: #666;">Неделен буџет</div>
+                                    <div style="font-size: 20px; font-weight: bold; color: #856404;">840 ден.</div>
+                                    <div style="font-size: 10px; color: #888;">≈ 120 ден. на ден</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="progress-card">
+                    <div class="progress-title">
+                        <span>📊 Дневен прогрес</span>
+                        <span id="progressPercentage">0%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-fill" id="progressFill">0%</div>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stat-box">
+                            <div class="stat-number" id="consumedCalories">0</div>
+                            <div class="stat-label">🔥 Внесени</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-number" id="remainingCalories">0</div>
+                            <div class="stat-label">✅ Остануваат</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-number" id="goalCalories">0</div>
+                            <div class="stat-label">🎯 Дневна цел</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid">
+                    <div class="card">
+                        <h2>🏋️ Препорачани вежби за денес</h2>
+                        <div id="exerciseRecommendations" style="display: flex; flex-direction: column; gap: 10px;"></div>
+                    </div>
+                    <div class="card">
+                        <h2>💡 Препораки за тебе</h2>
+                        <div id="recommendations"></div>
+                    </div>
+                    <div class="card">
+                        <h2>📝 Денешен внес</h2>
+                        <div id="todayMealsSummary"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="mealplanner" class="section">
+                <div class="card">
+                    <h2>🎯 Meal Planner - Автоматски генератор</h2>
+                    <div class="input-group">
+                        <label>🎯 Цел</label>
+                        <select id="goal">
+                            <option value="maintain">⚖️ Одржување</option>
+                            <option value="weight_loss">🏃‍♂️ Слабеење</option>
+                            <option value="muscle_gain">💪 Зголемување маса</option>
+                        </select>
+                    </div>
+                    <button id="generateBtn">🎯 Генерирај план</button>
+                    <div id="planResult" style="margin-top: 12px;"></div>
+                    <div id="calorieInfo" style="margin-top: 8px; font-size: 12px; color: #666;"></div>
+                </div>
+            </div>
+
+            <div id="custommeal" class="section">
+                <div class="card">
+                    <h2>➕ Додади сопствен оброк</h2>
+                    <div class="input-group">
+                        <label>🍽️ Име на оброк</label>
+                        <input type="text" id="customMealName" placeholder="на пр. Мојот специјален сендвич">
+                    </div>
+                    <div class="input-group">
+                        <label>💰 Цена (ден.)</label>
+                        <input type="number" id="customMealPrice" placeholder="на пр. 45" min="0" max="200">
+                    </div>
+                    <div class="input-group">
+                        <label>🔥 Калории (kcal)</label>
+                        <input type="number" id="customMealCalories" placeholder="на пр. 500" min="0" max="2000">
+                    </div>
+                    <div class="input-group">
+                        <label>🥩 Протеини (g)</label>
+                        <input type="number" id="customMealProtein" placeholder="на пр. 20" min="0" max="200">
+                    </div>
+                    <button id="addCustomMealBtn" style="background: #17a2b8;">➕ Додади оброк</button>
+                    <div id="customMealMessage" style="margin-top: 8px; font-size: 12px;"></div>
+                </div>
+
+                <div class="card" style="margin-top: 12px;">
+                    <h2>📋 Моите сопствени оброци</h2>
+                    <div id="userMealsList">Нема додадено оброци.</div>
+                </div>
+            </div>
+
+            <div id="calories" class="section">
+                <div class="card">
+                    <h2>🔥 Калкулатор за калории</h2>
+                    <div class="calorie-counter">
+                        <div class="calorie-display" id="calorieDisplay">0</div>
+                        <div class="calorie-goal" id="calorieGoalText">Цел: 0 kcal</div>
+                        <div class="calorie-progress">
+                            <div class="calorie-progress-bar" id="calorieProgressBar" style="width: 0%"></div>
+                        </div>
+                        <div id="calorieStatus"></div>
+                    </div>
+                    <div id="calorieHistory" style="margin-top: 10px; font-size: 12px; color: #666;"></div>
+                </div>
+            </div>
+
+            <div id="progress" class="section">
+                <div class="card">
+                    <h2>📊 Калории (последни 7 дена)</h2>
+                    <canvas id="calorieChart" height="250"></canvas>
+                </div>
+                <div class="card" style="margin-top: 12px;">
+                    <h2>📜 Историја на планови</h2>
+                    <div id="historyList"></div>
+                </div>
+            </div>
+
+            <div id="goals" class="section">
+                <div class="card">
+                    <h2>🎯 Твоите цели</h2>
+                    <div class="info-card" style="margin-bottom: 12px; padding: 10px;">
+                        <p style="font-size: 13px;"><strong>🎯 Твојата цел:</strong> <span id="currentGoal"></span></p>
+                        <p style="font-size: 13px;"><strong>🔥 Дневни калории:</strong> <span id="currentCaloriesGoal"></span> kcal</p>
+                        <p style="font-size: 13px;"><strong>💰 Дневен буџет:</strong> 120 ден.</p>
+                        <p style="font-size: 13px;"><strong>📅 Неделен буџет:</strong> 840 ден.</p>
+                    </div>
+                    <a href="/profile" class="nav-btn" style="display: inline-block; text-align: center; width: 100%;">📝 Ажурирај профил</a>
+                </div>
+            </div>
+
+            <div id="settings" class="section">
+                <div class="card">
+                    <h2>⚙️ Поставки</h2>
+                    <div class="info-card" style="margin-bottom: 12px; padding: 10px;">
+                        <p style="font-size: 13px;"><strong>👤 Корисничко име:</strong> {{ current_user.username }}</p>
+                        <p style="font-size: 13px;"><strong>📧 Емаил:</strong> {{ current_user.email }}</p>
+                        <p style="font-size: 13px;"><strong>📏 Висина:</strong> {{ current_user.height }} cm</p>
+                        <p style="font-size: 13px;"><strong>⚖️ Тежина:</strong> {{ current_user.weight }} kg</p>
+                        <p style="font-size: 13px;"><strong>🎂 Возраст:</strong> {{ current_user.age }} години</p>
+                        <p style="font-size: 13px;"><strong>👤 Пол:</strong> {{ 'Машки' if current_user.gender == 'male' else 'Женски' }}</p>
+                    </div>
+                    <a href="/profile" class="nav-btn" style="display: inline-block; text-align: center; width: 100%;">📝 Ажурирај профил</a>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
         let currentPlan = null;
         let dailyCaloriesGoal = 2000;
-        let consumedCalories = 0;
+
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+        const sectionId = item.getAttribute('data-section');
+        document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+        item.classList.add('active');
+        document.querySelectorAll('.section').forEach(section => section.classList.remove('active-section'));
+        document.getElementById(sectionId).classList.add('active-section');
+        if (sectionId === 'progress') {
+            loadCalorieChart();
+        }
+    });
+});
 
         async function loadPreferences() {
             try {
                 const response = await fetch('/get_preferences');
                 const data = await response.json();
-                document.getElementById('dailyBudget').innerText = data.budget || 120;
-                document.getElementById('dailyCalories').innerText = data.daily_calories || '--';
                 dailyCaloriesGoal = data.daily_calories || 2000;
                 document.getElementById('calorieGoalText').innerHTML = `Цел: ${dailyCaloriesGoal} kcal`;
+                document.getElementById('currentCaloriesGoal').innerText = dailyCaloriesGoal;
+                document.getElementById('goalCalories').innerText = dailyCaloriesGoal;
                 
-                if (data.goal) {
-                    document.getElementById('goal').value = data.goal;
-                }
+                let goalText = '';
+                if (data.goal === 'weight_loss') goalText = '🏃‍♂️ Слабеење';
+                else if (data.goal === 'muscle_gain') goalText = '💪 Зголемување маса';
+                else goalText = '⚖️ Одржување';
+                document.getElementById('currentGoal').innerText = goalText;
+                
+                if (data.goal) document.getElementById('goal').value = data.goal;
                 
                 await updateCalorieDisplay();
                 await updateInfoCard();
-            } catch (error) {
-                console.error('Грешка:', error);
-            }
+                await updateDailyProgress();
+            } catch (error) { console.error('Грешка:', error); }
         }
 
         async function updateInfoCard() {
@@ -407,271 +684,366 @@
                 const data = await response.json();
                 const dailyCalories = data.daily_calories || 2000;
                 const goal = data.goal || 'maintain';
-                
                 document.getElementById('dailyCaloriesInfo').innerText = dailyCalories + ' kcal';
-                
-                let goalText = '';
-                if (goal === 'weight_loss') {
-                    goalText = '🎯 Цел: Слабеење (400 kcal помалку)';
-                } else if (goal === 'muscle_gain') {
-                    goalText = '🎯 Цел: Зголемување маса (400 kcal повеќе)';
-                } else {
-                    goalText = '🎯 Цел: Одржување на тежина';
-                }
+                let goalText = goal === 'weight_loss' ? '🎯 Цел: Слабеење' : (goal === 'muscle_gain' ? '🎯 Цел: Зголемување маса' : '🎯 Цел: Одржување');
                 document.getElementById('goalTypeInfo').innerHTML = goalText;
-            } catch (error) {
-                console.error('Грешка:', error);
-            }
+            } catch (error) { console.error('Грешка:', error); }
+        }
+
+        async function updateDailyProgress() {
+            const meals = await getTodayMealsList();
+            let total = 0;
+            meals.forEach(meal => total += meal.calories);
+            document.getElementById('consumedCalories').innerText = total;
+            document.getElementById('goalCalories').innerText = dailyCaloriesGoal;
+            const remaining = dailyCaloriesGoal - total;
+            document.getElementById('remainingCalories').innerText = remaining >= 0 ? remaining : 0;
+            const percentage = Math.min((total / dailyCaloriesGoal) * 100, 100);
+            const progressBar = document.getElementById('progressFill');
+            progressBar.style.width = percentage + '%';
+            progressBar.innerText = Math.round(percentage) + '%';
+            document.getElementById('progressPercentage').innerText = Math.round(percentage) + '%';
+            if (percentage >= 100) progressBar.classList.add('danger');
+            else if (percentage >= 80) progressBar.classList.add('warning');
+            else progressBar.classList.remove('warning', 'danger');
         }
 
         async function updateCalorieDisplay() {
             const meals = await getTodayMealsList();
             let total = 0;
-            meals.forEach(meal => { total += meal.calories; });
-            consumedCalories = total;
-            
-            document.getElementById('calorieDisplay').innerText = consumedCalories;
-            
-            const percentage = Math.min((consumedCalories / dailyCaloriesGoal) * 100, 100);
+            meals.forEach(meal => total += meal.calories);
+            document.getElementById('calorieDisplay').innerText = total;
+            const percentage = Math.min((total / dailyCaloriesGoal) * 100, 100);
             const progressBar = document.getElementById('calorieProgressBar');
             progressBar.style.width = percentage + '%';
-            
             if (percentage >= 100) {
                 progressBar.classList.add('danger');
-                progressBar.classList.remove('warning');
-                document.getElementById('calorieStatus').innerHTML = '<span style="color:#dc3545;">⚠️ Ги надмина дневните калории!</span>';
+                document.getElementById('calorieStatus').innerHTML = '<span style="color:#dc3545;">⚠️ Ги надмина</span>';
             } else if (percentage >= 80) {
                 progressBar.classList.add('warning');
-                progressBar.classList.remove('danger');
-                document.getElementById('calorieStatus').innerHTML = '<span style="color:#ffc107;">⚠️ Блиску си до лимитот!</span>';
+                document.getElementById('calorieStatus').innerHTML = '<span style="color:#ffc107;">⚠️ Блиску си</span>';
             } else {
                 progressBar.classList.remove('warning', 'danger');
-                const remaining = dailyCaloriesGoal - consumedCalories;
-                document.getElementById('calorieStatus').innerHTML = `<span style="color:#28a745;">✅ Остануваат уште ${remaining} kcal</span>`;
+                const remaining = dailyCaloriesGoal - total;
+                document.getElementById('calorieStatus').innerHTML = `<span style="color:#28a745;">✅ Остануваат ${remaining} kcal</span>`;
             }
-            
             let historyHtml = '';
             if (meals.length > 0) {
                 historyHtml = '<strong>Внес денес:</strong><br>';
                 meals.forEach(meal => {
-                    let icon = meal.meal_type === 'breakfast' ? '🍳' : meal.meal_type === 'lunch' ? '🍝' : meal.meal_type === 'dinner' ? '🌙' : '🍎';
+                    let icon = meal.meal_type === 'breakfast' ? '🍳' : meal.meal_type === 'lunch' ? '🍝' : meal.meal_type === 'dinner' ? '🌙' : meal.meal_type === 'snack' ? '🍎' : '✨';
                     historyHtml += `${icon} ${meal.meal_name}: ${meal.calories} kcal<br>`;
                 });
             } else {
-                historyHtml = 'Нема внесено оброци. Генерирај план и кликни на оброк за да додадеш.';
+                historyHtml = 'Нема внесено оброци. Генерирај план.';
             }
             document.getElementById('calorieHistory').innerHTML = historyHtml;
+        }
+
+        async function loadTodayMealsSummary() {
+            const meals = await getTodayMealsList();
+            const container = document.getElementById('todayMealsSummary');
+            if (meals.length === 0) {
+                container.innerHTML = '<p style="color:#999; font-size:12px;">Нема внесено оброци.</p>';
+            } else {
+                let html = '';
+                let totalCal = 0;
+                meals.forEach(meal => {
+                    let icon = meal.meal_type === 'breakfast' ? '🍳' : meal.meal_type === 'lunch' ? '🍝' : meal.meal_type === 'dinner' ? '🌙' : meal.meal_type === 'snack' ? '🍎' : '✨';
+                    html += `<div style="font-size:12px;"><strong>${icon} ${meal.meal_name}</strong> - ${meal.calories} kcal</div>`;
+                    totalCal += meal.calories;
+                });
+                html += `<div style="margin-top:8px; padding-top:6px; border-top:1px solid #ddd; font-size:12px;"><strong>Вкупно: ${totalCal} kcal</strong></div>`;
+                container.innerHTML = html;
+            }
         }
 
         async function getTodayMealsList() {
             try {
                 const response = await fetch('/get_today_meals');
                 return await response.json();
-            } catch (error) {
-                console.error('Грешка:', error);
-                return [];
-            }
+            } catch (error) { return []; }
         }
 
-        async function loadTodayMeals() {
-            const container = document.getElementById('todayMeals');
-            const meals = await getTodayMealsList();
-            
-            if (meals.length === 0) {
-                container.innerHTML = '<p style="color:#999;">Нема внесено оброци за денес. Генерирај план и кликни на копчето за внес.</p>';
-            } else {
+        async function loadHistory() {
+            try {
+                const response = await fetch('/get_history');
+                const history = await response.json();
+                const container = document.getElementById('historyList');
+                if (history.length === 0) {
+                    container.innerHTML = '<p style="color:#999; font-size:12px;">Нема зачувани планови.</p>';
+                    return;
+                }
                 let html = '';
-                meals.forEach(meal => {
-                    let icon = meal.meal_type === 'breakfast' ? '🍳' : meal.meal_type === 'lunch' ? '🍝' : meal.meal_type === 'dinner' ? '🌙' : '🍎';
-                    html += '<div class="meal-card"><strong>' + icon + ' ' + meal.meal_name + '</strong><div class="meal-details">💰 ' + meal.price + ' ден. | 🔥 ' + meal.calories + ' kcal</div></div>';
+                history.forEach(h => {
+                    let mealsHtml = '';
+                    if (h.breakfast && h.breakfast !== 'Нема') mealsHtml += `<div>🍳 ${h.breakfast}</div>`;
+                    if (h.lunch && h.lunch !== 'Нема') mealsHtml += `<div>🍝 ${h.lunch}</div>`;
+                    if (h.dinner && h.dinner !== 'Нема') mealsHtml += `<div>🌙 ${h.dinner}</div>`;
+                    if (h.snack) mealsHtml += `<div>🍎 ${h.snack}</div>`;
+                    html += `<div class="history-item"><div><strong>📅 ${h.date}</strong></div>${mealsHtml}<div class="history-stats" style="margin-top:6px;">💰 ${h.total_price} ден. | 🔥 ${h.total_calories} kcal</div></div>`;
                 });
                 container.innerHTML = html;
+            } catch (error) { console.error('Грешка:', error); }
+        }
+
+       async function loadCalorieChart() {
+    console.log("=== loadCalorieChart ===");
+    console.log("dailyCaloriesGoal:", dailyCaloriesGoal);
+    
+    try {
+        const response = await fetch('/get_calorie_data');
+        const data = await response.json();
+        console.log("Податоци:", data);
+        
+        const canvas = document.getElementById('calorieChart');
+        if (!canvas) {
+            console.error("Canvas not found");
+            return;
+        }
+        
+        const ctx = canvas.getContext('2d');
+        if (window.CalorieChart) window.CalorieChart.destroy();
+        
+        let filteredData = data;
+        console.log("Филтрирани податоци:", filteredData);
+        
+        if (filteredData.length === 0) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.font = "16px Arial";
+            ctx.fillStyle = "#999";
+            ctx.textAlign = "center";
+            ctx.fillText("📊 Нема внесено оброци. Генерирај план и внеси оброци.", canvas.width / 2, canvas.height / 2);
+            return;
+        }
+        
+        let goalValue = dailyCaloriesGoal;
+        if (!goalValue || goalValue === 0) {
+            goalValue = 2000; 
+        }
+        
+        window.CalorieChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: filteredData.map(d => d.date),
+                datasets: [
+                    {
+                        label: 'Внесени калории (kcal)',
+                        data: filteredData.map(d => d.calories),
+                        backgroundColor: '#667eea',
+                        borderRadius: 8,
+                        barPercentage: 0.7
+                    },
+                    {
+                        label: 'Дневна цел (kcal)',
+                        data: Array(filteredData.length).fill(goalValue),
+                        type: 'line',
+                        borderColor: '#dc3545',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        fill: false,
+                        pointRadius: 0,
+                        tension: 0.1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { position: 'top', labels: { font: { size: 11 } } }
+                },
+                scales: {
+                    y: { 
+                        beginAtZero: true, 
+                        title: { display: true, text: 'Калории (kcal)' },
+                        max: Math.max(goalValue, ...filteredData.map(d => d.calories)) + 200
+                    },
+                    x: { title: { display: true, text: 'Датум' } }
+                }
             }
-            await updateCalorieDisplay();
+        });
+        console.log("Графиконот е креиран!");
+    } catch (error) { 
+        console.error('Грешка:', error); 
+    }
+}
+
+        async function generatePlan() {
+            const goal = document.getElementById('goal').value;
+            const checkResponse = await fetch('/get_daily_plan');
+            const dailyPlan = await checkResponse.json();
+            if (dailyPlan.exists) {
+                const useExisting = confirm('Веќе имате генерирано план за денес. Дали сакате да го користите постоечкиот план?');
+                if (useExisting) {
+                    currentPlan = dailyPlan;
+                    displayPlanWithCustom(currentPlan);
+                    return;
+                } else {
+                    await fetch('/delete_today_history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date: new Date().toISOString().split('T')[0] }) });
+                }
+            }
+            try {
+                const response = await fetch('/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal: goal }) });
+                const data = await response.json();
+                currentPlan = data.plan;
+                if (!currentPlan.custom_meals) currentPlan.custom_meals = [];
+                displayPlanWithCustom(currentPlan);
+                document.getElementById('calorieInfo').innerHTML = '<span style="color:#28a745; font-size:11px;">' + data.calorie_status + '</span>';
+                await fetch('/save_daily_plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: currentPlan }) });
+                await fetch('/save_preferences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal: goal }) });
+                loadRecommendations(); loadHistory();
+            } catch (error) { alert('Грешка при генерирање на планот!'); }
+        }
+
+        function displayPlanWithCustom(plan) {
+            let html = '';
+            let breakfastLabel = plan.breakfast.is_custom ? ' ✨' : '';
+            html += `<div class="meal-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;"><div><span style="font-size:18px;">🍳</span> <strong>${plan.breakfast.name}${breakfastLabel}</strong><div class="meal-details">💰 ${plan.breakfast.price} ден. | 🔥 ${plan.breakfast.calories} kcal</div></div><button onclick="trackMealFromPlan('breakfast')" style="background:#28a745; width:auto; padding:4px 12px;">✅ Внеси</button></div>`;
+            
+            let lunchLabel = plan.lunch.is_custom ? ' ✨' : '';
+            html += `<div class="meal-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;"><div><span style="font-size:18px;">🍝</span> <strong>${plan.lunch.name}${lunchLabel}</strong><div class="meal-details">💰 ${plan.lunch.price} ден. | 🔥 ${plan.lunch.calories} kcal</div></div><button onclick="trackMealFromPlan('lunch')" style="background:#28a745; width:auto; padding:4px 12px;">✅ Внеси</button></div>`;
+            
+            let dinnerLabel = plan.dinner.is_custom ? ' ✨' : '';
+            html += `<div class="meal-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;"><div><span style="font-size:18px;">🌙</span> <strong>${plan.dinner.name}${dinnerLabel}</strong><div class="meal-details">💰 ${plan.dinner.price} ден. | 🔥 ${plan.dinner.calories} kcal</div></div><button onclick="trackMealFromPlan('dinner')" style="background:#28a745; width:auto; padding:4px 12px;">✅ Внеси</button></div>`;
+            
+            if (plan.custom_meals && plan.custom_meals.length > 0) {
+                plan.custom_meals.forEach((meal, index) => {
+                    html += `<div class="meal-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; background:#fff8e1;"><div><span style="font-size:18px;">✨</span> <strong>${meal.name}</strong><div class="meal-details">💰 ${meal.price} ден. | 🔥 ${meal.calories} kcal</div></div><button onclick="trackCustomMeal(${index})" style="background:#28a745; width:auto; padding:4px 12px;">✅ Внеси</button></div>`;
+                });
+            }
+            
+            const totalPrice = plan.breakfast.price + plan.lunch.price + plan.dinner.price + (plan.custom_meals ? plan.custom_meals.reduce((s, m) => s + m.price, 0) : 0);
+            const totalCalories = plan.breakfast.calories + plan.lunch.calories + plan.dinner.calories + (plan.custom_meals ? plan.custom_meals.reduce((s, m) => s + m.calories, 0) : 0);
+            html += '<div style="margin-top:10px; padding-top:8px; border-top:1px solid #ddd; font-size:12px;"><strong>💰 Вкупно: ' + totalPrice + ' ден. | 🔥 ' + totalCalories + ' kcal</strong></div>';
+            document.getElementById('planResult').innerHTML = html;
+        }
+
+        async function trackMealFromPlan(mealType) {
+            if (!currentPlan) { alert("Прво генерирајте план!"); return; }
+            const meal = currentPlan[mealType];
+            const response = await fetch('/track_meal', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ meal_type: mealType, meal_name: meal.name + (meal.is_custom ? ' ✨ (Мој оброк)' : ''), calories: meal.calories, price: meal.price })
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert(`✅ Внесено: ${meal.name}`);
+                await updateCalorieDisplay(); 
+                await loadCalorieChart(); 
+                await updateDailyProgress(); 
+                await loadTodayMealsSummary(); 
+                loadRecommendations();
+            } else { alert("❌ Грешка при внесување!"); }
+        }
+
+        async function trackCustomMeal(index) {
+            if (!currentPlan || !currentPlan.custom_meals) return;
+            const meal = currentPlan.custom_meals[index];
+            const response = await fetch('/track_meal', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ meal_type: 'custom', meal_name: meal.name, calories: meal.calories, price: meal.price })
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert(`✅ Внесено: ${meal.name}`);
+                await updateCalorieDisplay(); 
+                await loadCalorieChart(); 
+                await updateDailyProgress(); 
+                await loadTodayMealsSummary();
+            } else { alert("❌ Грешка при внесување!"); }
+        }
+
+        const addCustomMealBtn = document.getElementById('addCustomMealBtn');
+        if (addCustomMealBtn) addCustomMealBtn.addEventListener('click', addCustomMeal);
+
+        async function addCustomMeal() {
+            const mealName = document.getElementById('customMealName').value;
+            const mealPrice = document.getElementById('customMealPrice').value;
+            const mealCalories = document.getElementById('customMealCalories').value;
+            const mealProtein = document.getElementById('customMealProtein').value;
+            
+            if (!mealName || !mealPrice || !mealCalories) { 
+                document.getElementById('customMealMessage').innerHTML = '<span style="color:#dc3545;">❌ Пополни ги сите полиња!</span>'; 
+                return; 
+            }
+            const response = await fetch('/add_user_meal', { 
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ meal_name: mealName, meal_type: 'custom', price: parseInt(mealPrice), calories: parseInt(mealCalories), protein: parseInt(mealProtein) || 0 }) 
+            });
+            const result = await response.json();
+            if (result.success) {
+                if (currentPlan) {
+                    if (!currentPlan.custom_meals) currentPlan.custom_meals = [];
+                    currentPlan.custom_meals.push({ name: mealName + ' ✨ (Мој оброк)', price: parseInt(mealPrice), calories: parseInt(mealCalories), is_custom: true });
+                    displayPlanWithCustom(currentPlan);
+                }
+                document.getElementById('customMealMessage').innerHTML = '<span style="color:#28a745;">✅ Оброкот е додаден!</span>';
+                document.getElementById('customMealName').value = ''; document.getElementById('customMealPrice').value = ''; document.getElementById('customMealCalories').value = ''; document.getElementById('customMealProtein').value = '';
+                await loadUserMeals();
+                setTimeout(() => { document.getElementById('customMealMessage').innerHTML = ''; }, 2000);
+            } else { document.getElementById('customMealMessage').innerHTML = '<span style="color:#dc3545;">❌ Грешка при додавање!</span>'; }
+        }
+
+        async function loadUserMeals() {
+            const response = await fetch('/get_user_meals'); const meals = await response.json(); const container = document.getElementById('userMealsList');
+            if (meals.length === 0) { container.innerHTML = '<p style="color:#999; font-size:12px;">Немате додадено сопствени оброци.</p>'; return; }
+            let html = '';
+            meals.forEach(meal => { let icon = meal.meal_type === 'breakfast' ? '🍳' : meal.meal_type === 'lunch' ? '🍝' : '🌙'; html += `<div class="meal-card" style="display: flex; justify-content: space-between; align-items: center; padding:8px;"><div><strong>${icon} ${meal.meal_name}</strong><br><small>💰 ${meal.price} ден. | 🔥 ${meal.calories} kcal</small></div><button onclick="deleteUserMeal(${meal.id})" style="background: #dc3545; width: auto; padding: 3px 8px; font-size:11px;">🗑</button></div>`; });
+            container.innerHTML = html;
+        }
+
+        async function deleteUserMeal(mealId) {
+            if (confirm('Дали си сигурен дека сакаш да го избришеш овој оброк?')) {
+                const response = await fetch(`/delete_user_meal/${mealId}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (result.success) { loadUserMeals(); }
+                else { alert('Грешка при бришење!'); }
+            }
         }
 
         async function loadRecommendations() {
             try {
-                const response = await fetch('/get_recommendations');
-                const recs = await response.json();
-                const container = document.getElementById('recommendations');
-                
-                if (recs.length === 0) {
-                    container.innerHTML = '<p style="color:#999;">Нема препораки за момент.</p>';
-                    return;
-                }
-                
+                const response = await fetch('/get_recommendations'); const recs = await response.json(); const container = document.getElementById('recommendations');
+                if (recs.length === 0) { container.innerHTML = '<p style="color:#999; font-size:12px;">Нема препораки.</p>'; return; }
                 let html = '';
-                recs.forEach(rec => {
-                    html += '<div class="rec-item"><strong>' + rec.title + '</strong><br>' + rec.description + '<br>' + (rec.price ? '💰 ' + rec.price : '') + '</div>';
-                });
+                recs.forEach(rec => html += '<div class="rec-item" style="font-size:12px;"><strong>' + rec.title + '</strong><br>' + rec.description + '<br>' + (rec.price ? '💰 ' + rec.price : '') + '</div>');
                 container.innerHTML = html;
-            } catch (error) {
-                console.error('Грешка:', error);
-            }
+            } catch (error) { console.error('Грешка:', error); }
         }
 
-        async function generatePlan() {
-            const goal = document.getElementById('goal').value;
-            
+        async function loadExerciseRecommendations() {
             try {
-                const response = await fetch('/generate', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({goal: goal})
-                });
-                const data = await response.json();
-                currentPlan = data.plan;
-                
+                const response = await fetch('/get_exercise_recommendations'); const recs = await response.json(); const container = document.getElementById('exerciseRecommendations');
+                if (!container) return;
+                if (recs.length === 0) { container.innerHTML = '<p style="color:#999; font-size:12px;">Нема препораки.</p>'; return; }
                 let html = '';
-                html += '<div class="meal-card" data-meal="breakfast">🍳 <span class="meal-name">' + currentPlan.breakfast.name + '</span><div class="meal-details">💰 ' + currentPlan.breakfast.price + ' ден. | 🔥 ' + currentPlan.breakfast.calories + ' kcal</div></div>';
-                html += '<div class="meal-card" data-meal="lunch">🍝 <span class="meal-name">' + currentPlan.lunch.name + '</span><div class="meal-details">💰 ' + currentPlan.lunch.price + ' ден. | 🔥 ' + currentPlan.lunch.calories + ' kcal</div></div>';
-                html += '<div class="meal-card" data-meal="dinner">🌙 <span class="meal-name">' + currentPlan.dinner.name + '</span><div class="meal-details">💰 ' + currentPlan.dinner.price + ' ден. | 🔥 ' + currentPlan.dinner.calories + ' kcal</div></div>';
-                html += '<div style="margin-top:15px; padding-top:10px; border-top:1px solid #ddd;"><strong>💰 Вкупно: ' + data.total_price + ' ден. | 🔥 Вкупно калории: ' + data.total_calories + ' kcal</strong></div>';
-                
-                document.getElementById('planResult').innerHTML = html;
-                document.getElementById('calorieInfo').innerHTML = '<span style="color:#28a745;">' + data.calorie_status + '</span>';
-                
-                await fetch('/save_preferences', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({goal: goal})
-                });
-                
-                loadRecommendations();
-                updateInfoCard();
-            } catch (error) {
-                console.error('Грешка:', error);
-                alert('Грешка при генерирање на планот!');
-            }
+                recs.forEach(rec => { html += `<div style="background:#f8f9fa; border-radius:10px; padding:8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;"><div style="flex:2;"><strong style="font-size:13px; color:#667eea;">🏋️ ${rec.exercise}</strong><div style="font-size:11px; color:#666;">🎯 ${rec.title}</div></div><div style="text-align:center;"><span style="font-size:14px;">⏱️</span><div><strong>${rec.duration}</strong></div></div><div style="text-align:center;"><span style="font-size:14px;">🔥</span><div><strong>${rec.calories_burn}</strong></div></div></div>`; });
+                container.innerHTML = html;
+            } catch (error) { console.error('Грешка:', error); }
         }
 
-        async function trackMeal(mealType) {
-            if (!currentPlan) {
-                alert("Прво генерирајте план!");
-                return;
-            }
-            
-            let meal = null;
-            if (mealType === 'breakfast') meal = currentPlan.breakfast;
-            else if (mealType === 'lunch') meal = currentPlan.lunch;
-            else if (mealType === 'dinner') meal = currentPlan.dinner;
-            
-            if (!meal) {
-                alert("Оброкот не е пронајден!");
-                return;
-            }
-            
-            try {
-                const response = await fetch('/track_meal', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        meal_type: mealType,
-                        meal_name: meal.name,
-                        calories: meal.calories,
-                        price: meal.price
-                    })
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    alert("✅ Зачувано: " + meal.name);
-                    await loadTodayMeals();
-                    await updateCalorieDisplay();
-                    loadRecommendations();
-                } else {
-                    alert("❌ Грешка при зачувување!");
-                }
-            } catch (error) {
-                console.error('Грешка:', error);
-                alert("Грешка при зачувување!");
-            }
-        }
-
-        const addSnackBtn = document.getElementById('addSnackBtn');
-        const snackModal = document.getElementById('snackModal');
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        const snackList = document.getElementById('snackList');
-        
-        addSnackBtn.addEventListener('click', () => {
-            loadSnackList();
-            snackModal.style.display = 'flex';
-        });
-        
-        closeModalBtn.addEventListener('click', () => {
-            snackModal.style.display = 'none';
-        });
-        
-        snackModal.addEventListener('click', (e) => {
-            if (e.target === snackModal) {
-                snackModal.style.display = 'none';
-            }
-        });
-        
-        async function loadSnackList() {
-            const response = await fetch('/get_all_meals');
-            const meals = await response.json();
-            displaySnackList(meals);
-        }
-        
-        function displaySnackList(meals) {
-            let html = '<div style="display: flex; flex-direction: column; gap: 10px;">';
-            meals.forEach(meal => {
-                let icon = meal.type === 'breakfast' ? '🍳' : meal.type === 'lunch' ? '🍝' : '🌙';
-                html += `
-                    <div style="background: #f8f9fa; border-radius: 10px; padding: 12px; display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong>${icon} ${meal.name}</strong><br>
-                            <small>💰 ${meal.price} ден. | 🔥 ${meal.calories} kcal | 🥩 ${meal.protein}g</small>
-                        </div>
-                        <button onclick="addSnack('${meal.name}')" style="background: #28a745; width: auto; padding: 8px 15px;">➕ Додади</button>
-                    </div>
-                `;
-            });
-            html += '</div>';
-            snackList.innerHTML = html;
-        }
-        
-        async function addSnack(mealName) {
-            const response = await fetch('/add_snack', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({meal_name: mealName})
-            });
-            
-            const result = await response.json();
-            if (result.success) {
-                alert(`✅ Додадено: ${mealName}`);
-                snackModal.style.display = 'none';
-                await loadTodayMeals();
-                await updateCalorieDisplay();
-                loadRecommendations();
-            } else {
-                alert('❌ Грешка при додавање!');
-            }
+        async function loadDailyPlan() {
+            const response = await fetch('/get_daily_plan'); const plan = await response.json();
+            if (plan.exists) { currentPlan = plan; if (!currentPlan.custom_meals) currentPlan.custom_meals = []; displayPlanWithCustom(currentPlan); document.getElementById('calorieInfo').innerHTML = '<span style="color:#17a2b8; font-size:11px;">📌 Зачуван план</span>'; }
         }
 
         function setupEventListeners() {
             document.getElementById('generateBtn').addEventListener('click', generatePlan);
-            
-            document.querySelectorAll('.track-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const mealType = this.getAttribute('data-meal');
-                    trackMeal(mealType);
-                });
-            });
         }
 
         async function init() {
             setupEventListeners();
             await loadPreferences();
-            await loadTodayMeals();
+            await loadDailyPlan();
+            await loadTodayMealsSummary();
             await loadRecommendations();
+            await loadExerciseRecommendations();
+            await loadHistory();
             await updateCalorieDisplay();
-            await updateInfoCard();
+            await updateDailyProgress();
+            await loadUserMeals();
         }
-        
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
