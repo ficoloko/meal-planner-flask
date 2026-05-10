@@ -1,6 +1,9 @@
-Како да се стартова апликацијата ? 
+Како да се стартува апликацијата ? 
+
   Отвори terminal на Visual Studio Code 
+  
   Инсталирај ги библиотеките pip install flask flask-sqlalchemy flask-login werkzeug
+  
   Пушти ја апликацијата python app.py
 
 
