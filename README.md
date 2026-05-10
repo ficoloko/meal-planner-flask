@@ -7,4 +7,4 @@
   Пушти ја апликацијата python app.py
 
 
-  Начин на работа на апликацијата. Линк до видеото: https://drive.google.com/file/d/1rdr1soMmB98oFb1nIPKyh7aqV_wu2R12/view?usp=sharing
+  Начин на работа на апликацијата. Линк до видеото: https://drive.google.com/file/d/1pWL35RBhhhkLDo__F8sbd-uADQl1OXZf/view?usp=drive_link
